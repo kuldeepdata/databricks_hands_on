@@ -1,0 +1,728 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EcomSphere Production Medallion Architecture & Schema Guide</title>
+<style>
+:root{--bg:#f5f7fb;--surface:#ffffff;--ink:#162033;--muted:#5f6b7a;--line:#dfe5ee;--nav:#0f172a;--bronze:#a85b22;--silver:#64748b;--gold:#9a7414;--blue:#2563eb;--green:#14804a;--red:#b42318;--purple:#6d4aff;--shadow:0 10px 28px rgba(15,23,42,.08)}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.58 Inter,Segoe UI,Arial,sans-serif}
+a{color:inherit}.page{max-width:1480px;margin:auto;display:grid;grid-template-columns:260px 1fr;min-height:100vh}
+nav{position:sticky;top:0;height:100vh;background:var(--nav);color:#d9e2f1;padding:22px 18px;overflow:auto}nav h2{font-size:16px;margin:0 0 16px;color:#fff}nav a{display:block;text-decoration:none;padding:8px 10px;margin:2px 0;border-radius:8px;color:#cbd5e1}nav a:hover{background:#1e293b;color:#fff}nav .small{font-size:12px;color:#94a3b8;margin-top:18px}
+main{min-width:0;padding:34px 38px 60px}.hero{background:linear-gradient(135deg,#0f172a,#1e3a5f);color:#fff;border-radius:20px;padding:36px;box-shadow:var(--shadow)}.hero h1{font-size:34px;line-height:1.15;margin:0 0 10px}.hero p{max-width:980px;color:#dbeafe;font-size:17px;margin:0}.kicker{text-transform:uppercase;letter-spacing:.12em;font-weight:700;font-size:12px;color:#93c5fd;margin-bottom:8px}
+.stats{display:grid;grid-template-columns:repeat(5,minmax(120px,1fr));gap:12px;margin:18px 0 4px}.stat{background:#fff;border:1px solid var(--line);border-radius:14px;padding:16px;box-shadow:0 3px 14px rgba(15,23,42,.05)}.stat b{display:block;font-size:27px}.stat span{color:var(--muted);font-size:13px}
+section{scroll-margin-top:18px;margin:34px 0}h2.section-title{font-size:27px;margin:0 0 8px}h3{font-size:20px;margin:24px 0 10px}p.lead{font-size:16px;color:#485568;max-width:1050px}.callout{background:#fff;border-left:5px solid var(--blue);padding:15px 18px;border-radius:10px;box-shadow:0 2px 10px rgba(15,23,42,.04);margin:16px 0}.callout.warn{border-color:#d97706}.callout.good{border-color:var(--green)}
+.flow{display:flex;align-items:stretch;gap:10px;overflow:auto;padding:10px 0 4px}.flow .box{min-width:170px;background:#fff;border:1px solid var(--line);border-radius:14px;padding:16px;box-shadow:0 3px 12px rgba(15,23,42,.05)}.flow .box strong{display:block;font-size:16px;margin-bottom:5px}.flow .arrow{display:flex;align-items:center;font-size:26px;color:#94a3b8}.box.bronze{border-top:4px solid var(--bronze)}.box.silver{border-top:4px solid var(--silver)}.box.gold{border-top:4px solid var(--gold)}.box.support{border-top:4px solid var(--purple)}
+.layer-strip{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:18px 0}.layer-card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px}.layer-card h3{margin:0 0 6px}.layer-card ul{margin:8px 0 0;padding-left:18px}
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0}input[type=search]{flex:1;min-width:250px;padding:11px 12px;border:1px solid #cbd5e1;border-radius:10px;background:#fff}button{border:1px solid #cbd5e1;background:#fff;border-radius:10px;padding:10px 12px;cursor:pointer}button:hover{background:#f8fafc}
+.schema-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}details.schema-card{background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden;box-shadow:0 2px 10px rgba(15,23,42,.035)}details.schema-card[open]{box-shadow:0 7px 20px rgba(15,23,42,.07)}summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:10px;padding:14px 15px}summary::-webkit-details-marker{display:none}summary::before{content:'+';display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;background:#eef2f7;color:#334155;font-weight:800;flex:0 0 auto}details[open] summary::before{content:'−'}.table-name{font:700 14px ui-monospace,SFMono-Regular,Consolas,monospace;overflow-wrap:anywhere}.count{margin-left:auto;color:#64748b;font-size:12px;white-space:nowrap}.badge{font-size:11px;background:#eef2ff;color:#4338ca;padding:3px 7px;border-radius:999px;white-space:nowrap}.schema-body{padding:0 16px 16px;border-top:1px solid #eef2f7}.purpose{margin:13px 0 8px;color:#334155}.meta-line{display:flex;gap:18px;flex-wrap:wrap;font-size:13px;color:#475569;margin-bottom:8px}.note{font-size:12px;color:#6b7280;background:#f8fafc;padding:9px 10px;border-radius:8px}.column-label{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:#64748b;font-weight:700;margin:12px 0 6px}.chips{display:flex;flex-wrap:wrap;gap:6px}.chips code{background:#f1f5f9;border:1px solid #e2e8f0;border-radius:7px;padding:4px 7px;color:#1e293b;font-size:12px}
+.compare{width:100%;border-collapse:collapse;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 10px rgba(15,23,42,.04)}.compare th,.compare td{border-bottom:1px solid #e8edf4;text-align:left;padding:10px 12px;vertical-align:top}.compare th{background:#f8fafc}.compare td:first-child{font-weight:700}.tag-critical{color:#991b1b;background:#fee2e2;padding:3px 7px;border-radius:999px;font-size:12px}.tag-warning{color:#92400e;background:#fef3c7;padding:3px 7px;border-radius:999px;font-size:12px}
+.star{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;max-width:900px;margin:16px auto}.star div{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px;text-align:center}.star .fact{grid-column:2;background:#fff9df;border-color:#efd879;font-weight:700}.star .blank{visibility:hidden}
+.sequence{counter-reset:step;display:grid;gap:10px}.step{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px 15px 14px 56px;position:relative}.step:before{counter-increment:step;content:counter(step);position:absolute;left:15px;top:14px;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:#1e293b;color:#fff;font-weight:700}
+.footer{margin-top:40px;color:#64748b;font-size:13px;text-align:center}
+@media(max-width:1000px){.page{display:block}nav{position:relative;height:auto}nav a{display:inline-block}main{padding:22px}.stats{grid-template-columns:repeat(2,1fr)}.schema-grid{grid-template-columns:1fr}.layer-strip{grid-template-columns:1fr}}
+@media(max-width:560px){main{padding:14px}.hero{padding:24px 18px}.hero h1{font-size:28px}.stats{grid-template-columns:1fr}.flow{display:grid}.flow .arrow{transform:rotate(90deg);justify-content:center;height:28px}}
+@media print{nav,.toolbar{display:none!important}.page{display:block}main{padding:0}details.schema-card:not([open]) .schema-body{display:block}details.schema-card summary::before{display:none}.hero{box-shadow:none}section{break-inside:auto}}
+</style>
+</head>
+<body>
+<div class="page">
+<nav>
+  <h2>EcomSphere Schema Guide</h2>
+  <a href="#overview">1. Architecture</a>
+  <a href="#principles">2. Layer Responsibilities</a>
+  <a href="#bronze">3. Bronze Schema</a>
+  <a href="#dq">4. Data Quality Flow</a>
+  <a href="#silver">5. Silver Schema</a>
+  <a href="#gold-core">6. Gold Star Schema</a>
+  <a href="#obt">7. Gold One Big Table</a>
+  <a href="#marts">8. Gold Summary Marts</a>
+  <a href="#support">9. Production Support Schemas</a>
+  <a href="#incremental">10. Incremental Processing</a>
+  <a href="#reconciliation">11. Reconciliation</a>
+  <a href="#endtoend">12. End-to-End View</a>
+  <div class="small">EcomSphere production medallion design<br>Bronze → Silver → Gold</div>
+</nav>
+<main>
+<header class="hero" id="overview">
+  <div class="kicker">EcomSphere Data Platform</div>
+  <h1>Production Medallion Architecture &amp; Schema Guide</h1>
+  <p>This guide shows how raw e-commerce data moves from Bronze to trusted Silver business entities and then into three Gold analytical models: a canonical Star Schema, a One Big Table, and Summary Marts. It also shows the metadata, quarantine and governance controls that make the pipeline safe to rerun, audit and operate.</p>
+</header>
+
+<div class="stats">
+ <div class="stat"><b>15</b><span>Bronze data tables</span></div>
+ <div class="stat"><b>7</b><span>Silver trusted tables</span></div>
+ <div class="stat"><b>11</b><span>Gold star objects</span></div>
+ <div class="stat"><b>1</b><span>Gold analytical OBT</span></div>
+ <div class="stat"><b>7</b><span>Gold summary marts</span></div>
+</div>
+
+<section>
+<h2 class="section-title">1. How the pipeline is connected</h2>
+<p class="lead">Each layer has a different responsibility. Bronze protects source fidelity. Silver protects business correctness. Gold makes trusted data easy to consume. Supporting schemas keep the pipeline observable and recoverable.</p>
+<div class="flow">
+ <div class="box"><strong>Sources</strong>OLTP / RDBMS<br>ADLS JSON feeds</div><div class="arrow">→</div>
+ <div class="box bronze"><strong>Bronze</strong>Raw, append-oriented, source-aligned + technical metadata</div><div class="arrow">→</div>
+ <div class="box silver"><strong>Silver</strong>Clean, standardised, deduplicated, validated and conformed</div><div class="arrow">→</div>
+ <div class="box gold"><strong>Gold Core</strong>Canonical dimensions and facts</div><div class="arrow">→</div>
+ <div class="box gold"><strong>Gold Serving</strong>One Big Table + Summary Marts</div>
+</div>
+<div class="callout good"><b>Important idea:</b> the Star Schema is the canonical analytical model. The OBT and Summary Marts reuse the same trusted Gold measures so revenue, order counts and other KPIs do not get different definitions in different dashboards.</div>
+</section>
+
+<section id="principles">
+<h2 class="section-title">2. Layer responsibilities</h2>
+<div class="layer-strip">
+ <div class="layer-card"><h3>Bronze — preserve</h3><ul><li>Keep all source columns.</li><li>Append records rather than updating raw history.</li><li>Add ingestion, CDC and lineage metadata.</li><li>Do not clean business values here.</li></ul></div>
+ <div class="layer-card"><h3>Silver — trust</h3><ul><li>Standardise formats and codes.</li><li>Deduplicate and handle late data.</li><li>Validate references and business rules.</li><li>Integrate sources at clearly defined grains.</li></ul></div>
+ <div class="layer-card"><h3>Gold — consume</h3><ul><li>Create surrogate-key dimensions and facts.</li><li>Keep historical dimension versions where useful.</li><li>Provide wide OBT access safely.</li><li>Pre-compute business summaries for dashboards.</li></ul></div>
+</div>
+</section>
+
+<section id="bronze">
+<h2 class="section-title">3. Bronze layer schema</h2>
+<p class="lead">Bronze mirrors the incoming sources. The existing business columns remain unchanged. Production metadata is appended to make every record traceable to a pipeline run, source object and CDC/file event.</p>
+<div class="callout"><b>Bronze rule:</b> if the source sends an email as <code>"  USER@MAIL.COM "</code>, Bronze keeps that value. Trimming and lower-casing happen later in Silver. This makes replay and root-cause analysis possible.</div>
+<h3>RDBMS / OLTP Bronze tables</h3>
+<div class="schema-grid"><details class="schema-card" data-search="bronze_brand brand master from oltp. keeps the original brand record so product enrichment can be rebuilt at any time.   brand_id brand_name description created_at updated_at is_deleted _ingest_ts bronze_load_date source_system source_object pipeline_run_id source_record_ts record_hash cdc_op cdc_extracted_at cdc_run_id">
+      <summary><span class="table-name">bronze_brand</span><span class="badge">RDBMS + CDC</span><span class="count">16 columns</span></summary>
+      <div class="schema-body">
+        <p class="purpose">Brand master from OLTP. Keeps the original brand record so product enrichment can be rebuilt at any time.</p>
+        
+        <p class="note">All original source columns are retained. Production metadata is appended; source business values are not cleaned in Bronze.</p>
+        <div class="column-label">Columns</div>
+        <div class="chips"><code>brand_id</code><code>brand_name</code><code>description</code><code>created_at</code><code>updated_at</code><code>is_deleted</code><code>_ingest_ts</code><code>bronze_load_date</code><code>source_system</code><code>source_object</code><code>pipeline_run_id</code><code>source_record_ts</code><code>record_hash</code><code>cdc_op</code><code>cdc_extracted_at</code><code>cdc_run_id</code></div>
+      </div>
+    </details><details class="schema-card" data-search="bronze_category product category hierarchy from oltp. preserves category relationships before standardisation and hierarchy enrichment.   category_id category_name parent_category_id category_level created_at updated_at is_deleted _ingest_ts bronze_load_date source_system source_object pipeline_run_id source_record_ts record_hash cdc_op cdc_extracted_at cdc_run_id">
+      <summary><span class="table-name">bronze_category</span><span class="badge">RDBMS + CDC</span><span class="count">17 columns</span></summary>
+      <div class="schema-body">
+        <p class="purpose">Product category hierarchy from OLTP. Preserves category relationships before standardisation and hierarchy enrichment.</p>
+        
+        <p class="note">All original source columns are retained. Production metadata is appended; source business values are not cleaned in Bronze.</p>
+        <div class="column-label">Columns</div>
+        <div class="chips"><code>category_id</code><code>category_name</code><code>parent_category_id</code><code>category_level</code><code>created_at</code><code>updated_at</code><code>is_deleted</code><code>_ingest_ts</code><code>bronze_load_date</code><code>source_system</code><code>source_object</code><code>pipeline_run_id</code><code>source_record_ts</code><code>record_hash</code><code>cdc_op</code><code>cdc_extracted_at</code><code>cdc_run_id</code></div>
+      </div>
+    </details><details class="schema-card" data-search="bronze_warehouse warehouse master from oltp. provides raw fulfilment-centre data used later by inventory and shipment models.   warehouse_id warehouse_name city state country_code created_at updated_at is_deleted _ingest_ts bronze_load_date source_system source_object pipeline_run_id source_record_ts record_hash cdc_op cdc_extracted_at cdc_run_id">
+      <summary><span class="table-name">bronze_warehouse</span><span class="badge">RDBMS + CDC</span><span class="count">18 columns</span></summary>
+      <div class="schema-body">
+        <p class="purpose">Warehouse master from OLTP. Provides raw fulfilment-centre data used later by inventory and shipment models.</p>
+        
+        <p class="note">All original source columns are retained. Production metadata is appended; source business values are not cleaned in Bronze.</p>
+        <div class="column-label">Columns</div>
+        <div class="chips"><code>warehouse_id</code><code>warehouse_name</code><code>city</code><code>state</code><code>country_code</code><code>created_at</code><code>updated_at</code><code>is_deleted</code><code>_ingest_ts</code><code>bronze_load_date</code><code>source_system</code><code>source_object</code><code>pipeline_run_id</code><code>source_record_ts</code><code>record_hash</code><code>cdc_op</code><code>cdc_extracted_at</code><code>cdc_run_id</code></div>
+      </div>
+    </details><details class="schema-card" data-search="bronze_customer core customer profile from oltp. keeps the original customer state for traceability and replay.   customer_id first_name last_name email phone_number status_code created_at updated_at is_deleted _ingest_ts bronze_load_date source_system source_object pipeline_run_id source_record_ts record_hash cdc_op cdc_extracted_at cdc_run_id">
+      <summary><span class="table-name">bronze_customer</span><span class="badge">RDBMS + CDC</span><span class="count">19 columns</span></summary>
+      <div class="schema-body">
+        <p class="purpose">Core customer profile from OLTP. Keeps the original customer state for traceability and replay.</p>
+        
+        <p class="note">All original source columns are retained. Production metadata is appended; source business values are not cleaned in Bronze.</p>
+        <div class="column-label">Columns</div>
+        <div class="chips"><code>customer_id</code><code>first_name</code><code>last_name</code><code>email</code><code>phone_number</code><code>status_code</code><code>created_at</code><code>updated_at</code><code>is_deleted</code><code>_ingest_ts</code><code>bronze_load_date</code><code>source_system</code><code>source_object</code><code>pipeline_run_id</code><code>source_record_ts</code><code>record_hash</code><code>cdc_op</code><code>cdc_extracted_at</code><code>cdc_run_id</code></div>
+      </div>
+    </details><details class="schema-card" data-search="bronze_customer_address customer address records from oltp. allows silver to select and standardise customer addresses without changing raw data.   customer_address_id customer_id address_line1 address_line2 landmark city state postal_code country_code address_type_code is_default created_at updated_at is_deleted _ingest_ts bronze_load_date source_system source_object pipeline_run_id source_record_ts record_hash cdc_op cdc_extracted_at cdc_run_id">
+      <summary><span class="table-name">bronze_customer_address</span><span class="badge">RDBMS + CDC</span><span class="count">24 columns</span></summary>
+      <div class="schema-body">
+        <p class="purpose">Customer address records from OLTP. Allows Silver to select and standardise customer addresses without changing raw data.</p>
+        
+        <p class="note">All original source columns are retained. Production metadata is appended; source business values are not cleaned in Bronze.</p>
+        <div class="column-label">Columns</div>
+        <div class="chips"><code>customer_address_id</code><code>customer_id</code><code>address_line1</code><code>address_line2</code><code>landmark</code><code>city</code><code>state</code><code>postal_code</code><code>country_code</code><code>address_type_code</code><code>is_default</code><code>created_at</code><code>updated_at</code><code>is_deleted</code><code>_ingest_ts</code><code>bronze_load_date</code><code>source_system</code><code>source_object</code><code>pipeline_run_id</code><code>source_record_ts</code><code>record_hash</code><code>cdc_op</code><code>cdc_extracted_at</code><code>cdc_run_id</code></div>
+      </div>
+    </details><details class="schema-card" data-search="bronze_product product master from oltp. keeps the structured product truth before joining variants and external catalogue data.   product_id product_name brand_id default_category_id short_description created_at updated_at is_active is_deleted _ingest_ts bronze_load_date source_system source_object pipeline_run_id source_record_ts record_hash cdc_op cdc_extracted_at cdc_run_id">
+      <summary><span class="table-name">bronze_product</span><span class="badge">RDBMS + CDC</span><span class="count">19 columns</span></summary>
+      <div class="schema-body">
+        <p class="purpose">Product master from OLTP. Keeps the structured product truth before joining variants and external catalogue data.</p>
+        
+        <p class="note">All original source columns are retained. Production metadata is appended; source business values are not cleaned in Bronze.</p>
+        <div class="column-label">Columns</div>
+        <div class="chips"><code>product_id</code><code>product_name</code><code>brand_id</code><code>default_category_id</code><code>short_description</code><code>created_at</code><code>updated_at</code><code>is_active</code><code>is_deleted</code><code>_ingest_ts</code><code>bronze_load_date</code><code>source_system</code><code>source_object</code><code>pipeline_run_id</code><code>source_record_ts</code><code>record_hash</code><code>cdc_op</code><code>cdc_extracted_at</code><code>cdc_run_id</code></div>
+      </div>
+    </details><details class="schema-card" data-search="bronze_product_variant sellable product variants from oltp. provides the variant-level key used by orders, inventory and catalogue enrichment.   product_variant_id product_id sku variant_name created_at updated_at is_active is_deleted _ingest_ts bronze_load_date source_system source_object pipeline_run_id source_record_ts record_hash cdc_op cdc_extracted_at cdc_run_id">
+      <summary><span class="table-name">bronze_product_variant</span><span class="badge">RDBMS + CDC</span><span class="count">18 columns</span></summary>
+      <div class="schema-body">
+        <p class="purpose">Sellable product variants from OLTP. Provides the variant-level key used by orders, inventory and catalogue enrichment.</p>
+        
+        <p class="note">All original source columns are retained. Production metadata is appended; source business values are not cleaned in Bronze.</p>
+        <div class="column-label">Columns</div>
+        <div class="chips"><code>product_variant_id</code><code>product_id</code><code>sku</code><code>variant_name</code><code>created_at</code><code>updated_at</code><code>is_active</code><code>is_deleted</code><code>_ingest_ts</code><code>bronze_load_date</code><code>source_system</code><code>source_object</code><code>pipeline_run_id</code><code>source_record_ts</code><code>record_hash</code><code>cdc_op</code><code>cdc_extracted_at</code><code>cdc_run_id</code></div>
+      </div>
+    </details><details class="schema-card" data-search="bronze_inventory_level warehouse-level inventory state. captures stock quantities before consistency checks and available-stock derivation.   warehouse_id product_variant_id on_hand_qty reserved_qty last_updated_at updated_at is_deleted _ingest_ts bronze_load_date source_system source_object pipeline_run_id source_record_ts record_hash cdc_op cdc_extracted_at cdc_run_id">
+      <summary><span class="table-name">bronze_inventory_level</span><span class="badge">RDBMS + CDC</span><span class="count">17 columns</span></summary>
+      <div class="schema-body">
+        <p class="purpose">Warehouse-level inventory state. Captures stock quantities before consistency checks and available-stock derivation.</p>
+        
+        <p class="note">All original source columns are retained. Production metadata is appended; source business values are not cleaned in Bronze.</p>
+        <div class="column-label">Columns</div>
+        <div class="chips"><code>warehouse_id</code><code>product_variant_id</code><code>on_hand_qty</code><code>reserved_qty</code><code>last_updated_at</code><code>updated_at</code><code>is_deleted</code><code>_ingest_ts</code><code>bronze_load_date</code><code>source_system</code><code>source_object</code><code>pipeline_run_id</code><code>source_record_ts</code><code>record_hash</code><code>cdc_op</code><code>cdc_extracted_at</code><code>cdc_run_id</code></div>
+      </div>
+    </details><details class="schema-card" data-search="bronze_orders order header transactions. preserves order totals, lifecycle codes and source timestamps for cdc and reconciliation.   order_id customer_id order_date order_status_code order_channel_code currency_code billing_address_id shipping_address_id total_item_amount total_discount_amount total_tax_amount total_shipping_amount grand_total_amount created_at updated_at is_deleted _ingest_ts bronze_load_date source_system source_object pipeline_run_id source_record_ts record_hash cdc_op cdc_extracted_at cdc_run_id">
+      <summary><span class="table-name">bronze_orders</span><span class="badge">RDBMS + CDC</span><span class="count">26 columns</span></summary>
+      <div class="schema-body">
+        <p class="purpose">Order header transactions. Preserves order totals, lifecycle codes and source timestamps for CDC and reconciliation.</p>
+        
+        <p class="note">All original source columns are retained. Production metadata is appended; source business values are not cleaned in Bronze.</p>
+        <div class="column-label">Columns</div>
+        <div class="chips"><code>order_id</code><code>customer_id</code><code>order_date</code><code>order_status_code</code><code>order_channel_code</code><code>currency_code</code><code>billing_address_id</code><code>shipping_address_id</code><code>total_item_amount</code><code>total_discount_amount</code><code>total_tax_amount</code><code>total_shipping_amount</code><code>grand_total_amount</code><code>created_at</code><code>updated_at</code><code>is_deleted</code><code>_ingest_ts</code><code>bronze_load_date</code><code>source_system</code><code>source_object</code><code>pipeline_run_id</code><code>source_record_ts</code><code>record_hash</code><code>cdc_op</code><code>cdc_extracted_at</code><code>cdc_run_id</code></div>
+      </div>
+    </details><details class="schema-card" data-search="bronze_order_item order line transactions. provides the detailed sales grain used by silver and gold sales models.   order_item_id order_id product_variant_id quantity base_unit_price discount_amount tax_amount shipping_amount line_total_amount created_at updated_at is_deleted _ingest_ts bronze_load_date source_system source_object pipeline_run_id source_record_ts record_hash cdc_op cdc_extracted_at cdc_run_id">
+      <summary><span class="table-name">bronze_order_item</span><span class="badge">RDBMS + CDC</span><span class="count">22 columns</span></summary>
+      <div class="schema-body">
+        <p class="purpose">Order line transactions. Provides the detailed sales grain used by Silver and Gold sales models.</p>
+        
+        <p class="note">All original source columns are retained. Production metadata is appended; source business values are not cleaned in Bronze.</p>
+        <div class="column-label">Columns</div>
+        <div class="chips"><code>order_item_id</code><code>order_id</code><code>product_variant_id</code><code>quantity</code><code>base_unit_price</code><code>discount_amount</code><code>tax_amount</code><code>shipping_amount</code><code>line_total_amount</code><code>created_at</code><code>updated_at</code><code>is_deleted</code><code>_ingest_ts</code><code>bronze_load_date</code><code>source_system</code><code>source_object</code><code>pipeline_run_id</code><code>source_record_ts</code><code>record_hash</code><code>cdc_op</code><code>cdc_extracted_at</code><code>cdc_run_id</code></div>
+      </div>
+    </details><details class="schema-card" data-search="bronze_payment payment attempts for orders. retains retries and payment states for reconciliation and payment analytics.   payment_id order_id payment_method_code payment_status_code amount currency_code transaction_reference payment_date created_at updated_at is_deleted _ingest_ts bronze_load_date source_system source_object pipeline_run_id source_record_ts record_hash cdc_op cdc_extracted_at cdc_run_id">
+      <summary><span class="table-name">bronze_payment</span><span class="badge">RDBMS + CDC</span><span class="count">21 columns</span></summary>
+      <div class="schema-body">
+        <p class="purpose">Payment attempts for orders. Retains retries and payment states for reconciliation and payment analytics.</p>
+        
+        <p class="note">All original source columns are retained. Production metadata is appended; source business values are not cleaned in Bronze.</p>
+        <div class="column-label">Columns</div>
+        <div class="chips"><code>payment_id</code><code>order_id</code><code>payment_method_code</code><code>payment_status_code</code><code>amount</code><code>currency_code</code><code>transaction_reference</code><code>payment_date</code><code>created_at</code><code>updated_at</code><code>is_deleted</code><code>_ingest_ts</code><code>bronze_load_date</code><code>source_system</code><code>source_object</code><code>pipeline_run_id</code><code>source_record_ts</code><code>record_hash</code><code>cdc_op</code><code>cdc_extracted_at</code><code>cdc_run_id</code></div>
+      </div>
+    </details><details class="schema-card" data-search="bronze_shipment shipment transactions. preserves delivery and carrier details before fulfilment metrics are derived.   shipment_id order_id warehouse_id carrier_name shipment_status_code tracking_number shipped_date delivered_date created_at updated_at is_deleted _ingest_ts bronze_load_date source_system source_object pipeline_run_id source_record_ts record_hash cdc_op cdc_extracted_at cdc_run_id">
+      <summary><span class="table-name">bronze_shipment</span><span class="badge">RDBMS + CDC</span><span class="count">21 columns</span></summary>
+      <div class="schema-body">
+        <p class="purpose">Shipment transactions. Preserves delivery and carrier details before fulfilment metrics are derived.</p>
+        
+        <p class="note">All original source columns are retained. Production metadata is appended; source business values are not cleaned in Bronze.</p>
+        <div class="column-label">Columns</div>
+        <div class="chips"><code>shipment_id</code><code>order_id</code><code>warehouse_id</code><code>carrier_name</code><code>shipment_status_code</code><code>tracking_number</code><code>shipped_date</code><code>delivered_date</code><code>created_at</code><code>updated_at</code><code>is_deleted</code><code>_ingest_ts</code><code>bronze_load_date</code><code>source_system</code><code>source_object</code><code>pipeline_run_id</code><code>source_record_ts</code><code>record_hash</code><code>cdc_op</code><code>cdc_extracted_at</code><code>cdc_run_id</code></div>
+      </div>
+    </details></div>
+<h3>ADLS JSON Bronze tables</h3>
+<div class="schema-grid"><details class="schema-card" data-search="bronze_product_catalog_feed external or partner product catalogue json. adds seller, listing, price and descriptive attributes without changing the oltp product master.   catalog_record_id product_id product_variant_id seller_id seller_name listing_title listing_description bullet_points color size material warranty_months country_of_origin hsn_code mrp selling_price available_stock availability_status tags image_urls seller_rating catalog_updated_at source_file_date _rescued_data _source_file _ingest_ts bronze_load_date source_object pipeline_run_id source_record_ts record_hash _source_file_modification_ts schema_version">
+      <summary><span class="table-name">bronze_product_catalog_feed</span><span class="badge">JSON / File</span><span class="count">33 columns</span></summary>
+      <div class="schema-body">
+        <p class="purpose">External or partner product catalogue JSON. Adds seller, listing, price and descriptive attributes without changing the OLTP product master.</p>
+        
+        <p class="note">File lineage and rescued data are retained so bad or evolving records can be traced and replayed.</p>
+        <div class="column-label">Columns</div>
+        <div class="chips"><code>catalog_record_id</code><code>product_id</code><code>product_variant_id</code><code>seller_id</code><code>seller_name</code><code>listing_title</code><code>listing_description</code><code>bullet_points</code><code>color</code><code>size</code><code>material</code><code>warranty_months</code><code>country_of_origin</code><code>hsn_code</code><code>mrp</code><code>selling_price</code><code>available_stock</code><code>availability_status</code><code>tags</code><code>image_urls</code><code>seller_rating</code><code>catalog_updated_at</code><code>source_file_date</code><code>_rescued_data</code><code>_source_file</code><code>_ingest_ts</code><code>bronze_load_date</code><code>source_object</code><code>pipeline_run_id</code><code>source_record_ts</code><code>record_hash</code><code>_source_file_modification_ts</code><code>schema_version</code></div>
+      </div>
+    </details><details class="schema-card" data-search="bronze_customer_review_feed customer review json. keeps text-heavy feedback and rating data in its original form before validation.   review_id order_id customer_id product_id product_variant_id rating review_title review_text review_language review_sentiment review_status is_verified_purchase helpful_votes media_urls review_created_at review_updated_at source_system _rescued_data _source_file _ingest_ts bronze_load_date source_object pipeline_run_id source_record_ts record_hash _source_file_modification_ts schema_version">
+      <summary><span class="table-name">bronze_customer_review_feed</span><span class="badge">JSON / File</span><span class="count">27 columns</span></summary>
+      <div class="schema-body">
+        <p class="purpose">Customer review JSON. Keeps text-heavy feedback and rating data in its original form before validation.</p>
+        
+        <p class="note">File lineage and rescued data are retained so bad or evolving records can be traced and replayed.</p>
+        <div class="column-label">Columns</div>
+        <div class="chips"><code>review_id</code><code>order_id</code><code>customer_id</code><code>product_id</code><code>product_variant_id</code><code>rating</code><code>review_title</code><code>review_text</code><code>review_language</code><code>review_sentiment</code><code>review_status</code><code>is_verified_purchase</code><code>helpful_votes</code><code>media_urls</code><code>review_created_at</code><code>review_updated_at</code><code>source_system</code><code>_rescued_data</code><code>_source_file</code><code>_ingest_ts</code><code>bronze_load_date</code><code>source_object</code><code>pipeline_run_id</code><code>source_record_ts</code><code>record_hash</code><code>_source_file_modification_ts</code><code>schema_version</code></div>
+      </div>
+    </details><details class="schema-card" data-search="bronze_order_event_log append-style order event json. preserves operational events used for order journey and sla analysis.   event_id order_id customer_id shipment_id payment_id event_type event_subtype event_source event_timestamp event_status old_value new_value reason_code comments actor_type actor_id device_type app_channel ip_address city source_file_date _rescued_data _source_file _ingest_ts bronze_load_date source_object pipeline_run_id source_record_ts record_hash _source_file_modification_ts schema_version">
+      <summary><span class="table-name">bronze_order_event_log</span><span class="badge">JSON / File</span><span class="count">31 columns</span></summary>
+      <div class="schema-body">
+        <p class="purpose">Append-style order event JSON. Preserves operational events used for order journey and SLA analysis.</p>
+        
+        <p class="note">File lineage and rescued data are retained so bad or evolving records can be traced and replayed.</p>
+        <div class="column-label">Columns</div>
+        <div class="chips"><code>event_id</code><code>order_id</code><code>customer_id</code><code>shipment_id</code><code>payment_id</code><code>event_type</code><code>event_subtype</code><code>event_source</code><code>event_timestamp</code><code>event_status</code><code>old_value</code><code>new_value</code><code>reason_code</code><code>comments</code><code>actor_type</code><code>actor_id</code><code>device_type</code><code>app_channel</code><code>ip_address</code><code>city</code><code>source_file_date</code><code>_rescued_data</code><code>_source_file</code><code>_ingest_ts</code><code>bronze_load_date</code><code>source_object</code><code>pipeline_run_id</code><code>source_record_ts</code><code>record_hash</code><code>_source_file_modification_ts</code><code>schema_version</code></div>
+      </div>
+    </details></div>
+<h3>Why the extra Bronze metadata matters</h3>
+<table class="compare"><thead><tr><th>Metadata</th><th>What it tells us</th></tr></thead><tbody>
+<tr><td><code>pipeline_run_id</code></td><td>Which pipeline execution loaded the row.</td></tr>
+<tr><td><code>source_system</code> / <code>source_object</code></td><td>Where the row came from.</td></tr>
+<tr><td><code>source_record_ts</code></td><td>The source-side time used to order changing records.</td></tr>
+<tr><td><code>record_hash</code></td><td>Helps detect duplicates or unchanged versions without replacing the business key.</td></tr>
+<tr><td><code>cdc_op</code></td><td>Classifies an RDBMS record as insert/update-style or soft-delete-style change.</td></tr>
+<tr><td><code>cdc_run_id</code> / <code>cdc_extracted_at</code></td><td>Links a CDC row to the exact extraction window.</td></tr>
+<tr><td><code>_source_file</code> / file modification time</td><td>Provides file lineage and helps investigate late or duplicate file arrivals.</td></tr>
+<tr><td><code>schema_version</code> / <code>_rescued_data</code></td><td>Makes schema drift visible instead of silently losing unexpected attributes.</td></tr>
+</tbody></table>
+</section>
+
+<section id="dq">
+<h2 class="section-title">4. Bronze-to-Silver data quality flow</h2>
+<p class="lead">Silver is the main data-quality layer. A successful Spark job is not enough; records must also satisfy the business rules needed by downstream analytics.</p>
+<div class="flow">
+ <div class="box bronze"><strong>Bronze records</strong>Raw values + metadata</div><div class="arrow">→</div>
+ <div class="box"><strong>DQ checks</strong>Structure, completeness, format, references, ranges, reconciliation</div><div class="arrow">→</div>
+ <div class="box silver"><strong>Trusted Silver</strong>Pass / pass with warning</div>
+</div>
+<div class="flow">
+ <div class="box"><strong>Critical failure</strong>Missing key, invalid reference, impossible amount or structural failure</div><div class="arrow">→</div>
+ <div class="box support"><strong>Quarantine</strong>Record is retained for investigation and controlled reprocessing</div>
+</div>
+<table class="compare"><thead><tr><th>DQ stage</th><th>Examples</th><th>Typical action</th></tr></thead><tbody>
+<tr><td>Foundation</td><td>Metadata present, valid JSON, required columns, datatype compatibility</td><td>Reject structural failures or rescue unexpected fields.</td></tr>
+<tr><td>Completeness</td><td>Customer, product, order, order item, payment and review mandatory fields</td><td>Critical missing keys are quarantined.</td></tr>
+<tr><td>Standardisation</td><td>Full name, email, phone, city, country code, status codes, timestamps</td><td>Convert to a consistent Silver representation.</td></tr>
+<tr><td>Deduplication</td><td>Exact duplicates, latest mutable entity, duplicate review/event/catalog listing</td><td>Keep the correct/latest valid business record.</td></tr>
+<tr><td>Reference integrity</td><td>Order→customer, item→order, item→variant, payment→order, inventory→variant</td><td>Block or flag records that cannot be trusted.</td></tr>
+<tr><td>Domain &amp; range</td><td>Positive quantity, non-negative money, rating 1–5, valid inventory balance</td><td>Critical invalid values go to quarantine; warnings may remain flagged.</td></tr>
+<tr><td>Business reconciliation</td><td>Order amount reconciliation and related customer/product/order relationship checks</td><td>Prevent mathematically valid but business-incorrect data from reaching Gold.</td></tr>
+<tr><td>Enrichment</td><td>Available inventory, verified purchase, product catalogue enrichment, order-line context</td><td>Create reusable conformed business entities.</td></tr>
+</tbody></table>
+<div class="callout warn"><b>Severity matters:</b> not every unusual value is rejected. A missing <code>order_id</code> is a critical failure. A statistical price outlier may be kept with a warning so the business can investigate it without losing the record.</div>
+</section>
+
+<section id="silver">
+<h2 class="section-title">5. Revised Silver layer schema</h2>
+<p class="lead">Silver stays reusable and business-focused. The names <code>dim_</code> and <code>fact_</code> are removed here because dimensional modelling belongs in Gold. The original columns remain, and a small set of production lineage columns is added.</p>
+<div class="toolbar"><input id="schemaSearch" type="search" placeholder="Search table or column name…"><button onclick="toggleAll(true)">Expand all</button><button onclick="toggleAll(false)">Collapse all</button></div>
+<div class="schema-grid" id="schemaArea"><details class="schema-card" data-search="silver_customer_profile trusted customer entity for analytics and downstream serving. names, email, phone and location are standardised here, while critical failures are kept out of the trusted table. one row per current customer profile bronze_customer + bronze_customer_address customer_id first_name last_name full_name email standardized_phone_number customer_status default_address_id default_city default_state default_postal_code default_country_code customer_created_at customer_updated_at is_deleted dq_null_violation_flag dq_format_violation_flag dq_duplicate_flag dq_reference_violation_flag silver_processed_ts source_updated_at pipeline_run_id record_hash dq_status">
+      <summary><span class="table-name">silver_customer_profile</span><span class="badge">Silver</span><span class="count">24 columns</span></summary>
+      <div class="schema-body">
+        <p class="purpose">Trusted customer entity for analytics and downstream serving. Names, email, phone and location are standardised here, while critical failures are kept out of the trusted table.</p>
+        <div class="meta-line"><span><b>Grain:</b> One row per current customer profile</span><span><b>Built from:</b> bronze_customer + bronze_customer_address</span></div>
+        <p class="note">Earlier project name: silver_dim_customer_profile. The dimensional words dim/fact are removed because true dimensional modelling is done in Gold.</p>
+        <div class="column-label">Columns</div>
+        <div class="chips"><code>customer_id</code><code>first_name</code><code>last_name</code><code>full_name</code><code>email</code><code>standardized_phone_number</code><code>customer_status</code><code>default_address_id</code><code>default_city</code><code>default_state</code><code>default_postal_code</code><code>default_country_code</code><code>customer_created_at</code><code>customer_updated_at</code><code>is_deleted</code><code>dq_null_violation_flag</code><code>dq_format_violation_flag</code><code>dq_duplicate_flag</code><code>dq_reference_violation_flag</code><code>silver_processed_ts</code><code>source_updated_at</code><code>pipeline_run_id</code><code>record_hash</code><code>dq_status</code></div>
+      </div>
+    </details><details class="schema-card" data-search="silver_product_master conformed product entity that combines structured product data with the file-based catalogue feed. it gives downstream models one consistent product view. one row per product variant and selected catalogue listing bronze_product + bronze_product_variant + bronze_brand + bronze_category + bronze_product_catalog_feed product_id product_variant_id sku product_name variant_name brand_id brand_name category_id category_name parent_category_id category_level short_description listing_title listing_description color size material warranty_months country_of_origin hsn_code seller_id seller_name mrp selling_price available_stock availability_status seller_rating is_active is_deleted dq_null_violation_flag dq_reference_violation_flag dq_outlier_flag silver_processed_ts source_updated_at pipeline_run_id record_hash dq_status">
+      <summary><span class="table-name">silver_product_master</span><span class="badge">Silver</span><span class="count">37 columns</span></summary>
+      <div class="schema-body">
+        <p class="purpose">Conformed product entity that combines structured product data with the file-based catalogue feed. It gives downstream models one consistent product view.</p>
+        <div class="meta-line"><span><b>Grain:</b> One row per product variant and selected catalogue listing</span><span><b>Built from:</b> bronze_product + bronze_product_variant + bronze_brand + bronze_category + bronze_product_catalog_feed</span></div>
+        <p class="note">Earlier project name: silver_dim_product_master. The dimensional words dim/fact are removed because true dimensional modelling is done in Gold.</p>
+        <div class="column-label">Columns</div>
+        <div class="chips"><code>product_id</code><code>product_variant_id</code><code>sku</code><code>product_name</code><code>variant_name</code><code>brand_id</code><code>brand_name</code><code>category_id</code><code>category_name</code><code>parent_category_id</code><code>category_level</code><code>short_description</code><code>listing_title</code><code>listing_description</code><code>color</code><code>size</code><code>material</code><code>warranty_months</code><code>country_of_origin</code><code>hsn_code</code><code>seller_id</code><code>seller_name</code><code>mrp</code><code>selling_price</code><code>available_stock</code><code>availability_status</code><code>seller_rating</code><code>is_active</code><code>is_deleted</code><code>dq_null_violation_flag</code><code>dq_reference_violation_flag</code><code>dq_outlier_flag</code><code>silver_processed_ts</code><code>source_updated_at</code><code>pipeline_run_id</code><code>record_hash</code><code>dq_status</code></div>
+      </div>
+    </details><details class="schema-card" data-search="silver_order_line core transaction-conformed table for sales analytics. the grain is protected so multiple payments, shipments or events cannot accidentally multiply sales amounts. exactly one row per order_item_id bronze_orders + bronze_order_item + selected payment/shipment context + product references order_item_id order_id customer_id product_variant_id product_id order_date order_status_code order_channel_code currency_code quantity base_unit_price discount_amount tax_amount shipping_amount line_total_amount payment_id payment_method_code payment_status_code shipment_id warehouse_id carrier_name shipment_status_code tracking_number shipped_date delivered_date billing_address_id shipping_address_id order_created_at order_updated_at payment_date is_order_deleted is_order_item_deleted dq_null_violation_flag dq_range_violation_flag dq_reference_violation_flag dq_duplicate_flag dq_amount_mismatch_flag silver_processed_ts source_updated_at pipeline_run_id record_hash dq_status">
+      <summary><span class="table-name">silver_order_line</span><span class="badge">Silver</span><span class="count">42 columns</span></summary>
+      <div class="schema-body">
+        <p class="purpose">Core transaction-conformed table for sales analytics. The grain is protected so multiple payments, shipments or events cannot accidentally multiply sales amounts.</p>
+        <div class="meta-line"><span><b>Grain:</b> Exactly one row per order_item_id</span><span><b>Built from:</b> bronze_orders + bronze_order_item + selected payment/shipment context + product references</span></div>
+        <p class="note">Earlier project name: silver_fact_order_line_enriched. The dimensional words dim/fact are removed because true dimensional modelling is done in Gold.</p>
+        <div class="column-label">Columns</div>
+        <div class="chips"><code>order_item_id</code><code>order_id</code><code>customer_id</code><code>product_variant_id</code><code>product_id</code><code>order_date</code><code>order_status_code</code><code>order_channel_code</code><code>currency_code</code><code>quantity</code><code>base_unit_price</code><code>discount_amount</code><code>tax_amount</code><code>shipping_amount</code><code>line_total_amount</code><code>payment_id</code><code>payment_method_code</code><code>payment_status_code</code><code>shipment_id</code><code>warehouse_id</code><code>carrier_name</code><code>shipment_status_code</code><code>tracking_number</code><code>shipped_date</code><code>delivered_date</code><code>billing_address_id</code><code>shipping_address_id</code><code>order_created_at</code><code>order_updated_at</code><code>payment_date</code><code>is_order_deleted</code><code>is_order_item_deleted</code><code>dq_null_violation_flag</code><code>dq_range_violation_flag</code><code>dq_reference_violation_flag</code><code>dq_duplicate_flag</code><code>dq_amount_mismatch_flag</code><code>silver_processed_ts</code><code>source_updated_at</code><code>pipeline_run_id</code><code>record_hash</code><code>dq_status</code></div>
+      </div>
+    </details><details class="schema-card" data-search="silver_inventory_snapshot validated stock view. available_qty is derived only after inventory consistency checks. one row per warehouse + product variant + inventory state time bronze_inventory_level + bronze_warehouse + product references warehouse_id warehouse_name city state country_code product_variant_id product_id sku on_hand_qty reserved_qty available_qty inventory_last_updated_at is_deleted dq_negative_stock_flag dq_reference_violation_flag silver_processed_ts source_updated_at pipeline_run_id record_hash dq_status">
+      <summary><span class="table-name">silver_inventory_snapshot</span><span class="badge">Silver</span><span class="count">20 columns</span></summary>
+      <div class="schema-body">
+        <p class="purpose">Validated stock view. available_qty is derived only after inventory consistency checks.</p>
+        <div class="meta-line"><span><b>Grain:</b> One row per warehouse + product variant + inventory state time</span><span><b>Built from:</b> bronze_inventory_level + bronze_warehouse + product references</span></div>
+        
+        <div class="column-label">Columns</div>
+        <div class="chips"><code>warehouse_id</code><code>warehouse_name</code><code>city</code><code>state</code><code>country_code</code><code>product_variant_id</code><code>product_id</code><code>sku</code><code>on_hand_qty</code><code>reserved_qty</code><code>available_qty</code><code>inventory_last_updated_at</code><code>is_deleted</code><code>dq_negative_stock_flag</code><code>dq_reference_violation_flag</code><code>silver_processed_ts</code><code>source_updated_at</code><code>pipeline_run_id</code><code>record_hash</code><code>dq_status</code></div>
+      </div>
+    </details><details class="schema-card" data-search="silver_customer_review curated customer feedback with valid rating ranges and trusted business references. event-style history is preserved rather than overwritten. one row per review_id bronze_customer_review_feed + customer/order/product references review_id order_id customer_id product_id product_variant_id rating standardized_review_title standardized_review_text review_language review_sentiment review_status is_verified_purchase helpful_votes review_created_at review_updated_at source_system dq_null_violation_flag dq_range_violation_flag dq_reference_violation_flag dq_duplicate_flag silver_processed_ts source_updated_at pipeline_run_id record_hash dq_status">
+      <summary><span class="table-name">silver_customer_review</span><span class="badge">Silver</span><span class="count">25 columns</span></summary>
+      <div class="schema-body">
+        <p class="purpose">Curated customer feedback with valid rating ranges and trusted business references. Event-style history is preserved rather than overwritten.</p>
+        <div class="meta-line"><span><b>Grain:</b> One row per review_id</span><span><b>Built from:</b> bronze_customer_review_feed + customer/order/product references</span></div>
+        <p class="note">Earlier project name: silver_customer_review_curated. The dimensional words dim/fact are removed because true dimensional modelling is done in Gold.</p>
+        <div class="column-label">Columns</div>
+        <div class="chips"><code>review_id</code><code>order_id</code><code>customer_id</code><code>product_id</code><code>product_variant_id</code><code>rating</code><code>standardized_review_title</code><code>standardized_review_text</code><code>review_language</code><code>review_sentiment</code><code>review_status</code><code>is_verified_purchase</code><code>helpful_votes</code><code>review_created_at</code><code>review_updated_at</code><code>source_system</code><code>dq_null_violation_flag</code><code>dq_range_violation_flag</code><code>dq_reference_violation_flag</code><code>dq_duplicate_flag</code><code>silver_processed_ts</code><code>source_updated_at</code><code>pipeline_run_id</code><code>record_hash</code><code>dq_status</code></div>
+      </div>
+    </details><details class="schema-card" data-search="silver_order_event curated order lifecycle event stream for operational analysis, sla measurement and troubleshooting. one row per event_id bronze_order_event_log + order/customer/payment/shipment references event_id order_id customer_id shipment_id payment_id event_type event_subtype event_source event_timestamp event_status old_value new_value reason_code comments actor_type actor_id device_type app_channel ip_address city dq_null_violation_flag dq_reference_violation_flag dq_duplicate_flag silver_processed_ts source_updated_at pipeline_run_id record_hash dq_status">
+      <summary><span class="table-name">silver_order_event</span><span class="badge">Silver</span><span class="count">28 columns</span></summary>
+      <div class="schema-body">
+        <p class="purpose">Curated order lifecycle event stream for operational analysis, SLA measurement and troubleshooting.</p>
+        <div class="meta-line"><span><b>Grain:</b> One row per event_id</span><span><b>Built from:</b> bronze_order_event_log + order/customer/payment/shipment references</span></div>
+        <p class="note">Earlier project name: silver_order_event_curated. The dimensional words dim/fact are removed because true dimensional modelling is done in Gold.</p>
+        <div class="column-label">Columns</div>
+        <div class="chips"><code>event_id</code><code>order_id</code><code>customer_id</code><code>shipment_id</code><code>payment_id</code><code>event_type</code><code>event_subtype</code><code>event_source</code><code>event_timestamp</code><code>event_status</code><code>old_value</code><code>new_value</code><code>reason_code</code><code>comments</code><code>actor_type</code><code>actor_id</code><code>device_type</code><code>app_channel</code><code>ip_address</code><code>city</code><code>dq_null_violation_flag</code><code>dq_reference_violation_flag</code><code>dq_duplicate_flag</code><code>silver_processed_ts</code><code>source_updated_at</code><code>pipeline_run_id</code><code>record_hash</code><code>dq_status</code></div>
+      </div>
+    </details><details class="schema-card" data-search="silver_data_quality_audit stores data-quality results separately from business data so pipeline health and business-data quality can be monitored independently. one row per dq rule execution per table per run dq checks across bronze-to-silver processing dq_run_id table_name rule_name rule_category total_records_checked failed_records_count passed_records_count failure_percentage run_timestamp severity status pipeline_run_id">
+      <summary><span class="table-name">silver_data_quality_audit</span><span class="badge">Silver</span><span class="count">12 columns</span></summary>
+      <div class="schema-body">
+        <p class="purpose">Stores data-quality results separately from business data so pipeline health and business-data quality can be monitored independently.</p>
+        <div class="meta-line"><span><b>Grain:</b> One row per DQ rule execution per table per run</span><span><b>Built from:</b> DQ checks across Bronze-to-Silver processing</span></div>
+        
+        <div class="column-label">Columns</div>
+        <div class="chips"><code>dq_run_id</code><code>table_name</code><code>rule_name</code><code>rule_category</code><code>total_records_checked</code><code>failed_records_count</code><code>passed_records_count</code><code>failure_percentage</code><code>run_timestamp</code><code>severity</code><code>status</code><code>pipeline_run_id</code></div>
+      </div>
+    </details></div>
+<div class="callout"><b>Grain protection:</b> <code>silver_order_line</code> remains exactly one row per <code>order_item_id</code>. Multiple payments, shipments, reviews or events must be reduced to a safe one-row context before joining. This prevents accidental multiplication of revenue.</div>
+</section>
+
+<section id="gold-core">
+<h2 class="section-title">6. Gold core — canonical Star Schema</h2>
+<p class="lead">The Star Schema is the trusted analytical core. It creates conformed dimensions, surrogate keys and facts with explicit grains. The OBT and Summary Marts use these definitions rather than re-implementing sales logic independently.</p>
+<div class="star"><div>dim_customer</div><div>dim_product</div><div>dim_date</div><div>dim_channel</div><div class="fact">fact_sales_order_item</div><div>dim_payment_method</div><div>dim_order_status</div><div>dim_warehouse</div><div class="blank">.</div></div>
+<h3>Dimensions</h3><div class="schema-grid"><details class="schema-card" data-search="gold.dim_customer historical customer dimension. surrogate keys protect historical facts when customer profile values change. one row per customer version  customer_key customer_id full_name email phone_number customer_status default_city default_state default_country_code effective_from_ts effective_to_ts is_current gold_processed_ts pipeline_run_id">
+      <summary><span class="table-name">gold.dim_customer</span><span class="badge">SCD Type 2</span><span class="count">14 columns</span></summary>
+      <div class="schema-body">
+        <p class="purpose">Historical customer dimension. Surrogate keys protect historical facts when customer profile values change.</p>
+        <div class="meta-line"><span><b>Grain:</b> One row per customer version</span></div>
+        
+        <div class="column-label">Columns</div>
+        <div class="chips"><code>customer_key</code><code>customer_id</code><code>full_name</code><code>email</code><code>phone_number</code><code>customer_status</code><code>default_city</code><code>default_state</code><code>default_country_code</code><code>effective_from_ts</code><code>effective_to_ts</code><code>is_current</code><code>gold_processed_ts</code><code>pipeline_run_id</code></div>
+      </div>
+    </details><details class="schema-card" data-search="gold.dim_product analytics-ready product dimension. history is kept only for attributes that matter to historical reporting. one row per product variant version  product_key product_id product_variant_id sku product_name variant_name brand_name category_name parent_category_name seller_id seller_name color size material warranty_months country_of_origin mrp selling_price availability_status is_active effective_from_ts effective_to_ts is_current gold_processed_ts pipeline_run_id">
+      <summary><span class="table-name">gold.dim_product</span><span class="badge">Selective SCD Type 2</span><span class="count">25 columns</span></summary>
+      <div class="schema-body">
+        <p class="purpose">Analytics-ready product dimension. History is kept only for attributes that matter to historical reporting.</p>
+        <div class="meta-line"><span><b>Grain:</b> One row per product variant version</span></div>
+        
+        <div class="column-label">Columns</div>
+        <div class="chips"><code>product_key</code><code>product_id</code><code>product_variant_id</code><code>sku</code><code>product_name</code><code>variant_name</code><code>brand_name</code><code>category_name</code><code>parent_category_name</code><code>seller_id</code><code>seller_name</code><code>color</code><code>size</code><code>material</code><code>warranty_months</code><code>country_of_origin</code><code>mrp</code><code>selling_price</code><code>availability_status</code><code>is_active</code><code>effective_from_ts</code><code>effective_to_ts</code><code>is_current</code><code>gold_processed_ts</code><code>pipeline_run_id</code></div>
+      </div>
+    </details><details class="schema-card" data-search="gold.dim_warehouse conformed fulfilment location used by sales and inventory facts. one row per warehouse  warehouse_key warehouse_id warehouse_name city state country_code gold_processed_ts pipeline_run_id">
+      <summary><span class="table-name">gold.dim_warehouse</span><span class="badge">Type 1 / reference-style unless history is required</span><span class="count">8 columns</span></summary>
+      <div class="schema-body">
+        <p class="purpose">Conformed fulfilment location used by sales and inventory facts.</p>
+        <div class="meta-line"><span><b>Grain:</b> One row per warehouse</span></div>
+        
+        <div class="column-label">Columns</div>
+        <div class="chips"><code>warehouse_key</code><code>warehouse_id</code><code>warehouse_name</code><code>city</code><code>state</code><code>country_code</code><code>gold_processed_ts</code><code>pipeline_run_id</code></div>
+      </div>
+    </details><details class="schema-card" data-search="gold.dim_date one reusable calendar definition for order, payment, shipment, delivery, review and event reporting. one row per calendar date  date_key full_date day month month_name quarter year week_of_year day_of_week is_weekend">
+      <summary><span class="table-name">gold.dim_date</span><span class="badge">Full refresh / generated reference</span><span class="count">10 columns</span></summary>
+      <div class="schema-body">
+        <p class="purpose">One reusable calendar definition for order, payment, shipment, delivery, review and event reporting.</p>
+        <div class="meta-line"><span><b>Grain:</b> One row per calendar date</span></div>
+        
+        <div class="column-label">Columns</div>
+        <div class="chips"><code>date_key</code><code>full_date</code><code>day</code><code>month</code><code>month_name</code><code>quarter</code><code>year</code><code>week_of_year</code><code>day_of_week</code><code>is_weekend</code></div>
+      </div>
+    </details><details class="schema-card" data-search="gold.dim_payment_method small conformed reference dimension for payment reporting. one row per payment method code  payment_method_key payment_method_code gold_processed_ts pipeline_run_id">
+      <summary><span class="table-name">gold.dim_payment_method</span><span class="badge">Reference dimension</span><span class="count">4 columns</span></summary>
+      <div class="schema-body">
+        <p class="purpose">Small conformed reference dimension for payment reporting.</p>
+        <div class="meta-line"><span><b>Grain:</b> One row per payment method code</span></div>
+        
+        <div class="column-label">Columns</div>
+        <div class="chips"><code>payment_method_key</code><code>payment_method_code</code><code>gold_processed_ts</code><code>pipeline_run_id</code></div>
+      </div>
+    </details><details class="schema-card" data-search="gold.dim_order_status standard order lifecycle values used consistently by facts and dashboards. one row per order status code  order_status_key order_status_code gold_processed_ts pipeline_run_id">
+      <summary><span class="table-name">gold.dim_order_status</span><span class="badge">Reference dimension</span><span class="count">4 columns</span></summary>
+      <div class="schema-body">
+        <p class="purpose">Standard order lifecycle values used consistently by facts and dashboards.</p>
+        <div class="meta-line"><span><b>Grain:</b> One row per order status code</span></div>
+        
+        <div class="column-label">Columns</div>
+        <div class="chips"><code>order_status_key</code><code>order_status_code</code><code>gold_processed_ts</code><code>pipeline_run_id</code></div>
+      </div>
+    </details><details class="schema-card" data-search="gold.dim_channel conformed sales channel reference for website, mobile app, call centre or other channels. one row per order channel code  channel_key order_channel_code gold_processed_ts pipeline_run_id">
+      <summary><span class="table-name">gold.dim_channel</span><span class="badge">Reference dimension</span><span class="count">4 columns</span></summary>
+      <div class="schema-body">
+        <p class="purpose">Conformed sales channel reference for website, mobile app, call centre or other channels.</p>
+        <div class="meta-line"><span><b>Grain:</b> One row per order channel code</span></div>
+        
+        <div class="column-label">Columns</div>
+        <div class="chips"><code>channel_key</code><code>order_channel_code</code><code>gold_processed_ts</code><code>pipeline_run_id</code></div>
+      </div>
+    </details></div>
+<h3>Facts</h3><div class="schema-grid"><details class="schema-card" data-search="gold.fact_sales_order_item canonical sales fact. all downstream sales metrics should start from this consistent grain and measure definition. one row per order item  sales_fact_key order_item_id order_id customer_key product_key warehouse_key order_date_key payment_date_key shipped_date_key delivered_date_key payment_method_key order_status_key channel_key quantity gross_amount discount_amount tax_amount shipping_amount net_line_amount order_count shipment_count gold_processed_ts pipeline_run_id">
+      <summary><span class="table-name">gold.fact_sales_order_item</span><span class="badge">Fact</span><span class="count">23 columns</span></summary>
+      <div class="schema-body">
+        <p class="purpose">Canonical sales fact. All downstream sales metrics should start from this consistent grain and measure definition.</p>
+        <div class="meta-line"><span><b>Grain:</b> One row per order item</span></div>
+        
+        <div class="column-label">Columns</div>
+        <div class="chips"><code>sales_fact_key</code><code>order_item_id</code><code>order_id</code><code>customer_key</code><code>product_key</code><code>warehouse_key</code><code>order_date_key</code><code>payment_date_key</code><code>shipped_date_key</code><code>delivered_date_key</code><code>payment_method_key</code><code>order_status_key</code><code>channel_key</code><code>quantity</code><code>gross_amount</code><code>discount_amount</code><code>tax_amount</code><code>shipping_amount</code><code>net_line_amount</code><code>order_count</code><code>shipment_count</code><code>gold_processed_ts</code><code>pipeline_run_id</code></div>
+      </div>
+    </details><details class="schema-card" data-search="gold.fact_inventory_snapshot inventory snapshot fact. quantities are additive across products and warehouses but should not normally be summed across dates. one row per snapshot date + warehouse + product  inventory_fact_key date_key warehouse_key product_key on_hand_qty reserved_qty available_qty gold_processed_ts pipeline_run_id">
+      <summary><span class="table-name">gold.fact_inventory_snapshot</span><span class="badge">Fact</span><span class="count">9 columns</span></summary>
+      <div class="schema-body">
+        <p class="purpose">Inventory snapshot fact. Quantities are additive across products and warehouses but should not normally be summed across dates.</p>
+        <div class="meta-line"><span><b>Grain:</b> One row per snapshot date + warehouse + product</span></div>
+        
+        <div class="column-label">Columns</div>
+        <div class="chips"><code>inventory_fact_key</code><code>date_key</code><code>warehouse_key</code><code>product_key</code><code>on_hand_qty</code><code>reserved_qty</code><code>available_qty</code><code>gold_processed_ts</code><code>pipeline_run_id</code></div>
+      </div>
+    </details><details class="schema-card" data-search="gold.fact_customer_review review fact for customer satisfaction and product-quality analysis. one row per review  review_fact_key review_id customer_key product_key review_date_key rating helpful_votes is_verified_purchase sentiment_score gold_processed_ts pipeline_run_id">
+      <summary><span class="table-name">gold.fact_customer_review</span><span class="badge">Fact</span><span class="count">11 columns</span></summary>
+      <div class="schema-body">
+        <p class="purpose">Review fact for customer satisfaction and product-quality analysis.</p>
+        <div class="meta-line"><span><b>Grain:</b> One row per review</span></div>
+        
+        <div class="column-label">Columns</div>
+        <div class="chips"><code>review_fact_key</code><code>review_id</code><code>customer_key</code><code>product_key</code><code>review_date_key</code><code>rating</code><code>helpful_votes</code><code>is_verified_purchase</code><code>sentiment_score</code><code>gold_processed_ts</code><code>pipeline_run_id</code></div>
+      </div>
+    </details><details class="schema-card" data-search="gold.fact_order_event event fact for order journey, operational milestones and sla reporting. one row per order event  event_fact_key event_id order_id customer_key date_key event_type event_subtype event_status shipment_id payment_id gold_processed_ts pipeline_run_id">
+      <summary><span class="table-name">gold.fact_order_event</span><span class="badge">Fact</span><span class="count">12 columns</span></summary>
+      <div class="schema-body">
+        <p class="purpose">Event fact for order journey, operational milestones and SLA reporting.</p>
+        <div class="meta-line"><span><b>Grain:</b> One row per order event</span></div>
+        
+        <div class="column-label">Columns</div>
+        <div class="chips"><code>event_fact_key</code><code>event_id</code><code>order_id</code><code>customer_key</code><code>date_key</code><code>event_type</code><code>event_subtype</code><code>event_status</code><code>shipment_id</code><code>payment_id</code><code>gold_processed_ts</code><code>pipeline_run_id</code></div>
+      </div>
+    </details></div>
+<h3>Production modelling rules</h3>
+<table class="compare"><thead><tr><th>Rule</th><th>How it is used</th></tr></thead><tbody>
+<tr><td>Unknown dimension member</td><td>Reserve a value such as <code>-1</code> for a fact that arrives before a dimension key can be resolved. The fact is not dropped.</td></tr>
+<tr><td>Role-playing dates</td><td><code>order_date_key</code>, <code>payment_date_key</code>, <code>shipped_date_key</code> and <code>delivered_date_key</code> can all reference the same <code>dim_date</code>.</td></tr>
+<tr><td>SCD Type 2</td><td>Use it only when historical attribute changes matter, such as customer location/status and selected product attributes.</td></tr>
+<tr><td>Additive measures</td><td>Sales, quantity, discount, tax and shipping can generally be summed across normal dimensions.</td></tr>
+<tr><td>Semi-additive inventory</td><td>Inventory can be summed across products/warehouses for the same snapshot date, but should not normally be summed across time.</td></tr>
+</tbody></table>
+</section>
+
+<section id="obt">
+<h2 class="section-title">7. Gold model 2 — One Big Table</h2>
+<p class="lead">The OBT is a convenience serving model for wide queries. It does not replace the Star Schema as the enterprise source of truth. Its grain is protected so the same order item never appears multiple times because of one-to-many joins.</p>
+<details class="schema-card" data-search="gold.ecommerce_sales_obt convenience model for wide analytical queries. one-to-many sources such as reviews, payments and events are reduced before joining so the sales grain is never duplicated. exactly one row per order_item_id canonical gold dimensions/facts plus pre-aggregated review/fulfilment context order_item_id order_id order_date order_date_key order_status_code order_channel_code currency_code customer_id customer_key customer_full_name customer_status customer_city customer_state customer_country_code product_id product_variant_id product_key sku product_name variant_name brand_name category_name parent_category_name seller_id seller_name color size material country_of_origin hsn_code quantity base_unit_price gross_amount discount_amount tax_amount shipping_amount net_line_amount mrp selling_price payment_id payment_method_code payment_status_code payment_date payment_date_key shipment_id warehouse_id warehouse_key warehouse_name warehouse_city warehouse_state carrier_name shipment_status_code tracking_number shipped_date shipped_date_key delivered_date delivered_date_key fulfillment_time_hours product_review_count product_avg_rating product_verified_review_count latest_review_sentiment gold_processed_ts pipeline_run_id">
+      <summary><span class="table-name">gold.ecommerce_sales_obt</span><span class="badge">One Big Table</span><span class="count">64 columns</span></summary>
+      <div class="schema-body">
+        <p class="purpose">Convenience model for wide analytical queries. One-to-many sources such as reviews, payments and events are reduced before joining so the sales grain is never duplicated.</p>
+        <div class="meta-line"><span><b>Grain:</b> Exactly one row per order_item_id</span><span><b>Built from:</b> Canonical Gold dimensions/facts plus pre-aggregated review/fulfilment context</span></div>
+        
+        <div class="column-label">Columns</div>
+        <div class="chips"><code>order_item_id</code><code>order_id</code><code>order_date</code><code>order_date_key</code><code>order_status_code</code><code>order_channel_code</code><code>currency_code</code><code>customer_id</code><code>customer_key</code><code>customer_full_name</code><code>customer_status</code><code>customer_city</code><code>customer_state</code><code>customer_country_code</code><code>product_id</code><code>product_variant_id</code><code>product_key</code><code>sku</code><code>product_name</code><code>variant_name</code><code>brand_name</code><code>category_name</code><code>parent_category_name</code><code>seller_id</code><code>seller_name</code><code>color</code><code>size</code><code>material</code><code>country_of_origin</code><code>hsn_code</code><code>quantity</code><code>base_unit_price</code><code>gross_amount</code><code>discount_amount</code><code>tax_amount</code><code>shipping_amount</code><code>net_line_amount</code><code>mrp</code><code>selling_price</code><code>payment_id</code><code>payment_method_code</code><code>payment_status_code</code><code>payment_date</code><code>payment_date_key</code><code>shipment_id</code><code>warehouse_id</code><code>warehouse_key</code><code>warehouse_name</code><code>warehouse_city</code><code>warehouse_state</code><code>carrier_name</code><code>shipment_status_code</code><code>tracking_number</code><code>shipped_date</code><code>shipped_date_key</code><code>delivered_date</code><code>delivered_date_key</code><code>fulfillment_time_hours</code><code>product_review_count</code><code>product_avg_rating</code><code>product_verified_review_count</code><code>latest_review_sentiment</code><code>gold_processed_ts</code><code>pipeline_run_id</code></div>
+      </div>
+    </details>
+<div class="callout good"><b>Safe denormalisation:</b> fields such as product review count, average rating, latest payment status and fulfilment hours are reduced to one value or one summary at the OBT grain before the join.</div>
+</section>
+
+<section id="marts">
+<h2 class="section-title">8. Gold model 3 — Summary Marts</h2>
+<p class="lead">Summary Marts answer repeated business questions quickly. They are derived from canonical Gold facts and dimensions so KPI definitions remain consistent.</p>
+<div class="schema-grid"><details class="schema-card" data-search="gold.mart_daily_sales daily sales kpi mart for dashboards and trend analysis. one row per sales_date  sales_date total_orders total_order_items total_revenue total_discount total_shipping total_tax avg_order_value last_refreshed_ts pipeline_run_id">
+      <summary><span class="table-name">gold.mart_daily_sales</span><span class="badge">Summary Mart</span><span class="count">10 columns</span></summary>
+      <div class="schema-body">
+        <p class="purpose">Daily sales KPI mart for dashboards and trend analysis.</p>
+        <div class="meta-line"><span><b>Grain:</b> One row per sales_date</span></div>
+        <p class="note">Earlier/source name: gold_daily_sales_summary</p>
+        <div class="column-label">Columns</div>
+        <div class="chips"><code>sales_date</code><code>total_orders</code><code>total_order_items</code><code>total_revenue</code><code>total_discount</code><code>total_shipping</code><code>total_tax</code><code>avg_order_value</code><code>last_refreshed_ts</code><code>pipeline_run_id</code></div>
+      </div>
+    </details><details class="schema-card" data-search="gold.mart_product_performance combines sales and review measures for product performance reporting. one row per sales_date + product_variant_id  product_id product_variant_id sales_date units_sold revenue avg_selling_price review_count avg_rating last_refreshed_ts pipeline_run_id">
+      <summary><span class="table-name">gold.mart_product_performance</span><span class="badge">Summary Mart</span><span class="count">10 columns</span></summary>
+      <div class="schema-body">
+        <p class="purpose">Combines sales and review measures for product performance reporting.</p>
+        <div class="meta-line"><span><b>Grain:</b> One row per sales_date + product_variant_id</span></div>
+        <p class="note">Earlier/source name: gold_product_performance_summary</p>
+        <div class="column-label">Columns</div>
+        <div class="chips"><code>product_id</code><code>product_variant_id</code><code>sales_date</code><code>units_sold</code><code>revenue</code><code>avg_selling_price</code><code>review_count</code><code>avg_rating</code><code>last_refreshed_ts</code><code>pipeline_run_id</code></div>
+      </div>
+    </details><details class="schema-card" data-search="gold.mart_customer_360 compact customer-level summary for segmentation, crm-style analysis and dashboards. one row per customer_id  customer_id total_orders total_spend avg_order_value last_order_date favorite_category review_count avg_rating_given last_refreshed_ts pipeline_run_id">
+      <summary><span class="table-name">gold.mart_customer_360</span><span class="badge">Summary Mart</span><span class="count">10 columns</span></summary>
+      <div class="schema-body">
+        <p class="purpose">Compact customer-level summary for segmentation, CRM-style analysis and dashboards.</p>
+        <div class="meta-line"><span><b>Grain:</b> One row per customer_id</span></div>
+        <p class="note">Earlier/source name: gold_customer_360_summary</p>
+        <div class="column-label">Columns</div>
+        <div class="chips"><code>customer_id</code><code>total_orders</code><code>total_spend</code><code>avg_order_value</code><code>last_order_date</code><code>favorite_category</code><code>review_count</code><code>avg_rating_given</code><code>last_refreshed_ts</code><code>pipeline_run_id</code></div>
+      </div>
+    </details><details class="schema-card" data-search="gold.mart_order_fulfillment order-level fulfilment mart for delivery performance and sla monitoring. one row per order_id  order_id customer_id order_date shipped_date delivered_date fulfillment_time_hours carrier_name shipment_status_code last_refreshed_ts pipeline_run_id">
+      <summary><span class="table-name">gold.mart_order_fulfillment</span><span class="badge">Summary Mart</span><span class="count">10 columns</span></summary>
+      <div class="schema-body">
+        <p class="purpose">Order-level fulfilment mart for delivery performance and SLA monitoring.</p>
+        <div class="meta-line"><span><b>Grain:</b> One row per order_id</span></div>
+        <p class="note">Earlier/source name: gold_order_fulfillment_summary</p>
+        <div class="column-label">Columns</div>
+        <div class="chips"><code>order_id</code><code>customer_id</code><code>order_date</code><code>shipped_date</code><code>delivered_date</code><code>fulfillment_time_hours</code><code>carrier_name</code><code>shipment_status_code</code><code>last_refreshed_ts</code><code>pipeline_run_id</code></div>
+      </div>
+    </details><details class="schema-card" data-search="gold.mart_inventory fast inventory reporting without repeatedly aggregating the full snapshot fact. one row per snapshot_date + warehouse_id + product_variant_id  snapshot_date warehouse_id product_id product_variant_id on_hand_qty reserved_qty available_qty stock_status last_refreshed_ts pipeline_run_id">
+      <summary><span class="table-name">gold.mart_inventory</span><span class="badge">Summary Mart</span><span class="count">10 columns</span></summary>
+      <div class="schema-body">
+        <p class="purpose">Fast inventory reporting without repeatedly aggregating the full snapshot fact.</p>
+        <div class="meta-line"><span><b>Grain:</b> One row per snapshot_date + warehouse_id + product_variant_id</span></div>
+        <p class="note">Additional production mart added to complete inventory/review serving needs.</p>
+        <div class="column-label">Columns</div>
+        <div class="chips"><code>snapshot_date</code><code>warehouse_id</code><code>product_id</code><code>product_variant_id</code><code>on_hand_qty</code><code>reserved_qty</code><code>available_qty</code><code>stock_status</code><code>last_refreshed_ts</code><code>pipeline_run_id</code></div>
+      </div>
+    </details><details class="schema-card" data-search="gold.mart_customer_review daily review and sentiment summary for product and customer-experience reporting. one row per review_date + product_variant_id  review_date product_id product_variant_id review_count verified_review_count avg_rating positive_review_count neutral_review_count negative_review_count avg_helpful_votes last_refreshed_ts pipeline_run_id">
+      <summary><span class="table-name">gold.mart_customer_review</span><span class="badge">Summary Mart</span><span class="count">12 columns</span></summary>
+      <div class="schema-body">
+        <p class="purpose">Daily review and sentiment summary for product and customer-experience reporting.</p>
+        <div class="meta-line"><span><b>Grain:</b> One row per review_date + product_variant_id</span></div>
+        <p class="note">Additional production mart added to complete inventory/review serving needs.</p>
+        <div class="column-label">Columns</div>
+        <div class="chips"><code>review_date</code><code>product_id</code><code>product_variant_id</code><code>review_count</code><code>verified_review_count</code><code>avg_rating</code><code>positive_review_count</code><code>neutral_review_count</code><code>negative_review_count</code><code>avg_helpful_votes</code><code>last_refreshed_ts</code><code>pipeline_run_id</code></div>
+      </div>
+    </details><details class="schema-card" data-search="gold.mart_data_quality business-friendly quality summary showing whether trusted data remains complete, valid and fresh. one row per run_date + table_name + rule_category  run_date table_name rule_category failed_count passed_count dq_score last_refreshed_ts pipeline_run_id">
+      <summary><span class="table-name">gold.mart_data_quality</span><span class="badge">Summary Mart</span><span class="count">8 columns</span></summary>
+      <div class="schema-body">
+        <p class="purpose">Business-friendly quality summary showing whether trusted data remains complete, valid and fresh.</p>
+        <div class="meta-line"><span><b>Grain:</b> One row per run_date + table_name + rule_category</span></div>
+        <p class="note">Earlier/source name: gold_data_quality_summary</p>
+        <div class="column-label">Columns</div>
+        <div class="chips"><code>run_date</code><code>table_name</code><code>rule_category</code><code>failed_count</code><code>passed_count</code><code>dq_score</code><code>last_refreshed_ts</code><code>pipeline_run_id</code></div>
+      </div>
+    </details></div>
+</section>
+
+<section id="support">
+<h2 class="section-title">9. Production support schemas</h2>
+<p class="lead">Production pipelines need more than Bronze, Silver and Gold. Control, quarantine and governance objects make incremental processing safe, data issues visible and operational evidence available.</p>
+<h3>Meta / control tables</h3><div class="schema-grid"><details class="schema-card" data-search="meta.cdc_watermark control table used by pipelines to manage incremental processing, schema control, configuration or load state.   source_system source_object watermark_column last_watermark_ts_utc overlap_minutes last_successful_run_id updated_ts status">
+      <summary><span class="table-name">meta.cdc_watermark</span><span class="badge">Control</span><span class="count">8 columns</span></summary>
+      <div class="schema-body">
+        <p class="purpose">Control table used by pipelines to manage incremental processing, schema control, configuration or load state.</p>
+        
+        
+        <div class="column-label">Columns</div>
+        <div class="chips"><code>source_system</code><code>source_object</code><code>watermark_column</code><code>last_watermark_ts_utc</code><code>overlap_minutes</code><code>last_successful_run_id</code><code>updated_ts</code><code>status</code></div>
+      </div>
+    </details><details class="schema-card" data-search="meta.pipeline_config control table used by pipelines to manage incremental processing, schema control, configuration or load state.   pipeline_name source_type source_object target_object load_type business_key sequence_column is_active schedule_group created_ts updated_ts">
+      <summary><span class="table-name">meta.pipeline_config</span><span class="badge">Control</span><span class="count">11 columns</span></summary>
+      <div class="schema-body">
+        <p class="purpose">Control table used by pipelines to manage incremental processing, schema control, configuration or load state.</p>
+        
+        
+        <div class="column-label">Columns</div>
+        <div class="chips"><code>pipeline_name</code><code>source_type</code><code>source_object</code><code>target_object</code><code>load_type</code><code>business_key</code><code>sequence_column</code><code>is_active</code><code>schedule_group</code><code>created_ts</code><code>updated_ts</code></div>
+      </div>
+    </details><details class="schema-card" data-search="meta.dataset_config control table used by pipelines to manage incremental processing, schema control, configuration or load state.   dataset_name source_system source_format source_location target_layer target_table business_key dq_profile is_active updated_ts">
+      <summary><span class="table-name">meta.dataset_config</span><span class="badge">Control</span><span class="count">10 columns</span></summary>
+      <div class="schema-body">
+        <p class="purpose">Control table used by pipelines to manage incremental processing, schema control, configuration or load state.</p>
+        
+        
+        <div class="column-label">Columns</div>
+        <div class="chips"><code>dataset_name</code><code>source_system</code><code>source_format</code><code>source_location</code><code>target_layer</code><code>target_table</code><code>business_key</code><code>dq_profile</code><code>is_active</code><code>updated_ts</code></div>
+      </div>
+    </details><details class="schema-card" data-search="meta.schema_version control table used by pipelines to manage incremental processing, schema control, configuration or load state.   dataset_name schema_version schema_json change_type approved_status effective_from_ts registered_ts">
+      <summary><span class="table-name">meta.schema_version</span><span class="badge">Control</span><span class="count">7 columns</span></summary>
+      <div class="schema-body">
+        <p class="purpose">Control table used by pipelines to manage incremental processing, schema control, configuration or load state.</p>
+        
+        
+        <div class="column-label">Columns</div>
+        <div class="chips"><code>dataset_name</code><code>schema_version</code><code>schema_json</code><code>change_type</code><code>approved_status</code><code>effective_from_ts</code><code>registered_ts</code></div>
+      </div>
+    </details><details class="schema-card" data-search="meta.load_control control table used by pipelines to manage incremental processing, schema control, configuration or load state.   pipeline_run_id dataset_name load_start_ts load_end_ts load_mode lower_watermark_ts upper_watermark_ts records_read records_written status">
+      <summary><span class="table-name">meta.load_control</span><span class="badge">Control</span><span class="count">10 columns</span></summary>
+      <div class="schema-body">
+        <p class="purpose">Control table used by pipelines to manage incremental processing, schema control, configuration or load state.</p>
+        
+        
+        <div class="column-label">Columns</div>
+        <div class="chips"><code>pipeline_run_id</code><code>dataset_name</code><code>load_start_ts</code><code>load_end_ts</code><code>load_mode</code><code>lower_watermark_ts</code><code>upper_watermark_ts</code><code>records_read</code><code>records_written</code><code>status</code></div>
+      </div>
+    </details></div>
+<h3>Quarantine tables</h3><div class="schema-grid"><details class="schema-card" data-search="quarantine.product_catalog_feed keeps rejected or structurally problematic records available for investigation and controlled reprocessing instead of silently dropping them.   quarantine_id source_record_key source_file rescued_data failed_rules failure_reason raw_record_json pipeline_run_id detected_ts resolution_status">
+      <summary><span class="table-name">quarantine.product_catalog_feed</span><span class="badge">Quarantine</span><span class="count">10 columns</span></summary>
+      <div class="schema-body">
+        <p class="purpose">Keeps rejected or structurally problematic records available for investigation and controlled reprocessing instead of silently dropping them.</p>
+        
+        
+        <div class="column-label">Columns</div>
+        <div class="chips"><code>quarantine_id</code><code>source_record_key</code><code>source_file</code><code>rescued_data</code><code>failed_rules</code><code>failure_reason</code><code>raw_record_json</code><code>pipeline_run_id</code><code>detected_ts</code><code>resolution_status</code></div>
+      </div>
+    </details><details class="schema-card" data-search="quarantine.customer_review_feed keeps rejected or structurally problematic records available for investigation and controlled reprocessing instead of silently dropping them.   quarantine_id source_record_key source_file rescued_data failed_rules failure_reason raw_record_json pipeline_run_id detected_ts resolution_status">
+      <summary><span class="table-name">quarantine.customer_review_feed</span><span class="badge">Quarantine</span><span class="count">10 columns</span></summary>
+      <div class="schema-body">
+        <p class="purpose">Keeps rejected or structurally problematic records available for investigation and controlled reprocessing instead of silently dropping them.</p>
+        
+        
+        <div class="column-label">Columns</div>
+        <div class="chips"><code>quarantine_id</code><code>source_record_key</code><code>source_file</code><code>rescued_data</code><code>failed_rules</code><code>failure_reason</code><code>raw_record_json</code><code>pipeline_run_id</code><code>detected_ts</code><code>resolution_status</code></div>
+      </div>
+    </details><details class="schema-card" data-search="quarantine.order_event_log keeps rejected or structurally problematic records available for investigation and controlled reprocessing instead of silently dropping them.   quarantine_id source_record_key source_file rescued_data failed_rules failure_reason raw_record_json pipeline_run_id detected_ts resolution_status">
+      <summary><span class="table-name">quarantine.order_event_log</span><span class="badge">Quarantine</span><span class="count">10 columns</span></summary>
+      <div class="schema-body">
+        <p class="purpose">Keeps rejected or structurally problematic records available for investigation and controlled reprocessing instead of silently dropping them.</p>
+        
+        
+        <div class="column-label">Columns</div>
+        <div class="chips"><code>quarantine_id</code><code>source_record_key</code><code>source_file</code><code>rescued_data</code><code>failed_rules</code><code>failure_reason</code><code>raw_record_json</code><code>pipeline_run_id</code><code>detected_ts</code><code>resolution_status</code></div>
+      </div>
+    </details><details class="schema-card" data-search="quarantine.customer_profile_rejects keeps rejected or structurally problematic records available for investigation and controlled reprocessing instead of silently dropping them.   quarantine_id customer_id failed_rules severity failed_column failed_value failure_reason pipeline_run_id detected_ts resolution_status">
+      <summary><span class="table-name">quarantine.customer_profile_rejects</span><span class="badge">Quarantine</span><span class="count">10 columns</span></summary>
+      <div class="schema-body">
+        <p class="purpose">Keeps rejected or structurally problematic records available for investigation and controlled reprocessing instead of silently dropping them.</p>
+        
+        
+        <div class="column-label">Columns</div>
+        <div class="chips"><code>quarantine_id</code><code>customer_id</code><code>failed_rules</code><code>severity</code><code>failed_column</code><code>failed_value</code><code>failure_reason</code><code>pipeline_run_id</code><code>detected_ts</code><code>resolution_status</code></div>
+      </div>
+    </details></div>
+<h3>Governance tables</h3><div class="schema-grid"><details class="schema-card" data-search="governance.pipeline_run_audit governance and operational evidence used for ownership, lineage, auditing, access and retention.   pipeline_run_id pipeline_name start_time end_time status records_processed records_failed run_duration error_message">
+      <summary><span class="table-name">governance.pipeline_run_audit</span><span class="badge">Governance</span><span class="count">9 columns</span></summary>
+      <div class="schema-body">
+        <p class="purpose">Governance and operational evidence used for ownership, lineage, auditing, access and retention.</p>
+        
+        
+        <div class="column-label">Columns</div>
+        <div class="chips"><code>pipeline_run_id</code><code>pipeline_name</code><code>start_time</code><code>end_time</code><code>status</code><code>records_processed</code><code>records_failed</code><code>run_duration</code><code>error_message</code></div>
+      </div>
+    </details><details class="schema-card" data-search="governance.dataset_metadata governance and operational evidence used for ownership, lineage, auditing, access and retention.   dataset_name layer business_description data_owner technical_owner source_system refresh_frequency sensitivity_class business_key updated_ts">
+      <summary><span class="table-name">governance.dataset_metadata</span><span class="badge">Governance</span><span class="count">10 columns</span></summary>
+      <div class="schema-body">
+        <p class="purpose">Governance and operational evidence used for ownership, lineage, auditing, access and retention.</p>
+        
+        
+        <div class="column-label">Columns</div>
+        <div class="chips"><code>dataset_name</code><code>layer</code><code>business_description</code><code>data_owner</code><code>technical_owner</code><code>source_system</code><code>refresh_frequency</code><code>sensitivity_class</code><code>business_key</code><code>updated_ts</code></div>
+      </div>
+    </details><details class="schema-card" data-search="governance.dataset_lineage governance and operational evidence used for ownership, lineage, auditing, access and retention.   lineage_id source_dataset target_dataset transformation_name pipeline_name column_mapping_reference captured_ts">
+      <summary><span class="table-name">governance.dataset_lineage</span><span class="badge">Governance</span><span class="count">7 columns</span></summary>
+      <div class="schema-body">
+        <p class="purpose">Governance and operational evidence used for ownership, lineage, auditing, access and retention.</p>
+        
+        
+        <div class="column-label">Columns</div>
+        <div class="chips"><code>lineage_id</code><code>source_dataset</code><code>target_dataset</code><code>transformation_name</code><code>pipeline_name</code><code>column_mapping_reference</code><code>captured_ts</code></div>
+      </div>
+    </details><details class="schema-card" data-search="governance.schema_registry governance and operational evidence used for ownership, lineage, auditing, access and retention.   dataset_name schema_version schema_json change_type approved_by approved_ts status">
+      <summary><span class="table-name">governance.schema_registry</span><span class="badge">Governance</span><span class="count">7 columns</span></summary>
+      <div class="schema-body">
+        <p class="purpose">Governance and operational evidence used for ownership, lineage, auditing, access and retention.</p>
+        
+        
+        <div class="column-label">Columns</div>
+        <div class="chips"><code>dataset_name</code><code>schema_version</code><code>schema_json</code><code>change_type</code><code>approved_by</code><code>approved_ts</code><code>status</code></div>
+      </div>
+    </details><details class="schema-card" data-search="governance.access_policy_registry governance and operational evidence used for ownership, lineage, auditing, access and retention.   policy_id dataset_name policy_type principal_or_group rule_description status effective_from_ts updated_ts">
+      <summary><span class="table-name">governance.access_policy_registry</span><span class="badge">Governance</span><span class="count">8 columns</span></summary>
+      <div class="schema-body">
+        <p class="purpose">Governance and operational evidence used for ownership, lineage, auditing, access and retention.</p>
+        
+        
+        <div class="column-label">Columns</div>
+        <div class="chips"><code>policy_id</code><code>dataset_name</code><code>policy_type</code><code>principal_or_group</code><code>rule_description</code><code>status</code><code>effective_from_ts</code><code>updated_ts</code></div>
+      </div>
+    </details><details class="schema-card" data-search="governance.data_retention_policies governance and operational evidence used for ownership, lineage, auditing, access and retention.   policy_id dataset_name retention_days archive_action delete_action legal_hold_flag effective_from_date status">
+      <summary><span class="table-name">governance.data_retention_policies</span><span class="badge">Governance</span><span class="count">8 columns</span></summary>
+      <div class="schema-body">
+        <p class="purpose">Governance and operational evidence used for ownership, lineage, auditing, access and retention.</p>
+        
+        
+        <div class="column-label">Columns</div>
+        <div class="chips"><code>policy_id</code><code>dataset_name</code><code>retention_days</code><code>archive_action</code><code>delete_action</code><code>legal_hold_flag</code><code>effective_from_date</code><code>status</code></div>
+      </div>
+    </details></div>
+</section>
+
+<section id="incremental">
+<h2 class="section-title">10. How incremental processing works</h2>
+<div class="sequence">
+ <div class="step"><b>Read the last successful watermark.</b> The control table stores watermarks in one agreed timezone, preferably UTC.</div>
+ <div class="step"><b>Use a small overlap window for query-based CDC.</b> Re-reading recent rows protects against late updates and clock skew. Bronze may therefore contain overlapping versions.</div>
+ <div class="step"><b>Append every extracted change to Bronze.</b> The raw layer keeps what arrived rather than updating history in place.</div>
+ <div class="step"><b>Deduplicate in Silver by business key and sequence.</b> Use source update time and ingestion time to select the latest trusted state.</div>
+ <div class="step"><b>Use defensive MERGE logic.</b> A soft-delete for a key that never existed in Silver should not create a fake record.</div>
+ <div class="step"><b>Build Gold after Silver passes quality checks.</b> Dimensions are resolved before facts, and summary outputs reuse canonical fact logic.</div>
+ <div class="step"><b>Advance the watermark only after success.</b> The run audit and load-control tables record counts, window boundaries and status for safe retries.</div>
+</div>
+<div class="callout warn"><b>Query-based CDC limitation:</b> if a row changes three times between two extraction runs, a source table that stores only current state may expose only the final version. This pipeline therefore guarantees trusted latest-state analytics, not full transaction-log history.</div>
+</section>
+
+<section id="reconciliation">
+<h2 class="section-title">11. Reconciliation between layers</h2>
+<table class="compare"><thead><tr><th>Boundary</th><th>Checks</th><th>Why it matters</th></tr></thead><tbody>
+<tr><td>Source → Bronze</td><td>Rows/files received, metadata completeness, rescued data, freshness, CDC window</td><td>Confirms that ingestion captured what was available.</td></tr>
+<tr><td>Bronze → Silver</td><td>Pass/reject counts, duplicates, references, amount reconciliation, late-data resolution</td><td>Confirms that cleaning did not silently lose or multiply business records.</td></tr>
+<tr><td>Silver → Gold Star</td><td>Natural-key coverage, unknown dimensions, fact grain, measure totals, SCD current-row rules</td><td>Confirms dimensional correctness and historical consistency.</td></tr>
+<tr><td>Gold Star → OBT</td><td>Order-item count, revenue, quantity, unique grain</td><td>Proves denormalisation did not multiply facts.</td></tr>
+<tr><td>Gold Star → Marts</td><td>KPI totals, date completeness, mart freshness, aggregate-to-detail reconciliation</td><td>Prevents dashboards from showing different totals for the same business metric.</td></tr>
+</tbody></table>
+</section>
+
+<section id="endtoend">
+<h2 class="section-title">12. End-to-end production view</h2>
+<div class="flow">
+ <div class="box"><strong>OLTP / JSON</strong>Business sources</div><div class="arrow">→</div>
+ <div class="box bronze"><strong>Bronze</strong>15 source-aligned tables + lineage / CDC metadata</div><div class="arrow">→</div>
+ <div class="box"><strong>DQ + Quarantine</strong>Critical rejects isolated; warnings tracked</div><div class="arrow">→</div>
+ <div class="box silver"><strong>Silver</strong>7 trusted conformed outputs</div><div class="arrow">→</div>
+ <div class="box gold"><strong>Gold Star</strong>7 dimensions + 4 facts</div>
+</div>
+<div class="flow">
+ <div class="box gold"><strong>Gold OBT</strong>One row per order item</div><div class="arrow">↔</div>
+ <div class="box gold"><strong>Gold Marts</strong>7 business summaries</div><div class="arrow">↔</div>
+ <div class="box support"><strong>Meta + Governance</strong>Watermarks, run audits, lineage, schema and retention controls</div>
+</div>
+<div class="callout good"><b>Final mental model:</b> Bronze answers “what arrived?”, Silver answers “what can we trust?”, Gold answers “how should the business consume it?”, while Meta, Quarantine and Governance answer “can we operate, explain and recover the pipeline safely?”</div>
+</section>
+
+<div class="footer">EcomSphere · Production Medallion Architecture &amp; Schema Guide</div>
+</main>
+</div>
+<script>
+function toggleAll(openState){document.querySelectorAll('details.schema-card').forEach(d=>d.open=openState);}
+const search=document.getElementById('schemaSearch');
+if(search){search.addEventListener('input',()=>{const q=search.value.trim().toLowerCase();document.querySelectorAll('#schemaArea details.schema-card').forEach(d=>{d.style.display=!q||d.dataset.search.includes(q)?'block':'none';});});}
+</script>
+</body></html>
