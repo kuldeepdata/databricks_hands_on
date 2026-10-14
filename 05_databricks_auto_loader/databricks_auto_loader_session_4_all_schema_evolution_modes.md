@@ -121,8 +121,9 @@ Changing a schema does not delete the checkpoint and does not automatically repl
 | `none` | Complete explicit schema | Continues and ignores the field |
 | `rescue` | Complete explicit schema | Continues and stores the field in `_rescued_data` |
 | `failOnNewColumns` | Complete explicit schema | Fails without updating the schema |
-| `addNewColumns` | Schema hints and `schemaLocation` | Updates schema state, fails once, and needs a restart |
 | `addNewColumnsWithTypeWidening` | Inference, schema hints, and `schemaLocation` | Adds columns and widens supported types after restart |
+| `addNewColumns` | Schema hints and `schemaLocation` | Updates schema state, fails once, and needs a restart |
+
 
 `addNewColumns` and `addNewColumnsWithTypeWidening` do not use a complete `.schema()`. Automatic evolution requires inference or schema hints.
 
@@ -474,6 +475,7 @@ def run_none_stream():
         .withColumn("ingested_at", current_timestamp())
     )
 
+    
     query = (
         output_df.writeStream
         .format("delta")
